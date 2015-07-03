@@ -1,5 +1,5 @@
--- | Annoying boxes puzzle.
--- http://blog.plover.com/math/logic/annoying-boxes.html
+-- | Annoying boxes puzzle from a
+-- <http://blog.plover.com/math/logic/annoying-boxes.html blog post>.
 --
 --  There are two boxes on a table, one red and one green. One
 --  contains a treasure. The red box is labelled "exactly one of the
@@ -7,73 +7,93 @@
 --  this box."
 --
 -- Can you figure out which box contains the treasure?
+module Main where
 
--- Not needed in GHC 7.10 onward, but provided only for
--- compatibility for older GHC versions.
+import Data.Foldable (traverse_)
+
+-- For GHC version < 7.10.1
 import Control.Applicative ((<$>), (<*>))
 
--- All information about a box.
-data Box = Box { _containsTreasure :: Bool
-               , _labelIsTrue :: Bool
-               , _labelIsTruthful :: Bool
+-- | OO-style reverse application operator.
+-- Copied from https://hackage.haskell.org/package/base-4.8.0.0/docs/Data-Function.html for GHC version < 7.10.1, else "import Data.Function" works.
+infixl 1 &
+(&) :: a -> (a -> b) -> b
+x & f = f x
+
+-- | All information about a box.
+data Box = Box { containsTreasure :: Bool
+               , labelIsTrue :: Bool
+               , labelIsTruthful :: Bool
                }
            deriving (Show)
 
--- | A state of the world.
-data World = World { _redBox :: Box
-                   , _greenBox :: Box
+-- | The state of the world.
+data World = World { redBox :: Box
+                   , greenBox :: Box
                    }
              deriving (Show)
 
--- | For each constraint,
--- generate a list of all possible consistent worlds by brute force:
+-- | Constraint to apply when filtering possible worlds.
+type Constraint = World -> Bool
+
+-- | For each scenario with a given constraint,
 --
--- Enumerate all possibilities.
--- Filter for consistency.
+-- * Enumerate all possible worlds.
+-- * Filter for only the consistent ones.
 main :: IO ()
 main = do
-  putStrLn "Possible consistent worlds for original problem:\n"
-  mapM_ print $ filter defaultConstraint
-              $ anyWorld
+  putStrLn "Possible consistent worlds for original problem:"
+  defaultConstraint & printAllSolutions
 
-  putStrLn ""
+  putStrLn "Possible consistent worlds if we assume the red label is truthful:"
+  defaultConstraint `with` redLabelIsTruthful & printAllSolutions
 
-  putStrLn "Possible consistent worlds if we assume the red label is truthful"
-  mapM_ print $ filter (defaultConstraint `with` redLabelIsTruthful)
-              $ anyWorld
+  putStrLn "Possible consistent worlds if we assume the green label is truthful:"
+  defaultConstraint `with` greenLabelIsTruthful & printAllSolutions
 
-  putStrLn ""
+  putStrLn "Possible consistent worlds if we assume both labels are truthful:"
+  defaultConstraint `with` bothLabelsAreTruthful & printAllSolutions
 
-  putStrLn "Possible consistent worlds if we assume the green label is truthful"
-  mapM_ print $ filter (defaultConstraint `with` greenLabelIsTruthful)
-              $ anyWorld
+-- | Find all solutions and print them to stdout.
+printAllSolutions :: Constraint -> IO ()
+printAllSolutions constraint =
+  anyWorld & filter constraint & traverse_ print
 
-
-  putStrLn ""
-
-  putStrLn "Possible consistent worlds if we assume both labels are truthful"
-  mapM_ print $ filter (defaultConstraint `with` bothLabelsAreTruthful)
-              $ anyWorld
-
-
--- | Problem as specified.
-defaultConstraint :: World -> Bool
+-- | The problem as specified.
+defaultConstraint :: Constraint
 defaultConstraint world =
-  let redBox = _redBox world
-      greenBox = _greenBox world
-  in _containsTreasure redBox `xor` _containsTreasure greenBox
-     && _labelIsTrue redBox == _labelIsTrue redBox `xor` _labelIsTrue greenBox
-     && _labelIsTrue greenBox `implies` _containsTreasure greenBox
-     && labelTruthfulness redBox
-     && labelTruthfulness greenBox
+  let theRedBox = world & redBox
+      theGreenBox = world & greenBox
+  in and
+     [ (theRedBox & containsTreasure) /= (theGreenBox & containsTreasure)
+       -- exactly one box contains the treasure
+     , (theRedBox & labelIsTrue)
+       ==
+       (
+         (theRedBox & labelIsTrue) /= (theGreenBox & labelIsTrue)
+         -- exactly one label is true
+       )
+       -- what the red box label says
+     , (theGreenBox & labelIsTrue)
+       ==
+       (theGreenBox & containsTreasure)
+       -- what the green box label says
+     , theRedBox & labelTruthfulImpliesTrue
+       -- what being truthful means
+     , theGreenBox & labelTruthfulImpliesTrue
+       -- what being truthful means
+     ]
 
--- | Combine constraints
-with :: (World -> Bool) -> (World -> Bool) -> (World -> Bool)
-x `with` y = \world -> x world && y world
+-- | Combine constraints.
+with :: Constraint -> Constraint -> Constraint
+c `with` d = \world -> c world && d world
 
 -- | If a label is truthful, then what it says is true.
-labelTruthfulness :: Box -> Bool
-labelTruthfulness box = _labelIsTruthful box `implies` _labelIsTrue box
+labelTruthfulImpliesTrue :: Box -> Bool
+labelTruthfulImpliesTrue box =
+  (box & labelIsTruthful) `implies` (box & labelIsTrue)
+
+-- Boilerplate for generating all possible values for types.
 
 anyWorld :: [World]
 anyWorld = World <$> anyBox <*> anyBox
@@ -88,16 +108,13 @@ anyBool = [False, True]
 implies :: Bool -> Bool -> Bool
 p `implies` q = not p || q
 
--- | Exclusive-or operator.
-xor :: Bool -> Bool -> Bool
-p `xor` q = (p || q) && not (p && q)
+-- Extra constraints.
 
-redLabelIsTruthful :: World -> Bool
-redLabelIsTruthful world = _labelIsTruthful (_redBox world)
+redLabelIsTruthful :: Constraint
+redLabelIsTruthful world = world & redBox & labelIsTruthful
 
-greenLabelIsTruthful :: World -> Bool
-greenLabelIsTruthful world = _labelIsTruthful (_greenBox world)
+greenLabelIsTruthful :: Constraint
+greenLabelIsTruthful world = world & greenBox & labelIsTruthful
 
-bothLabelsAreTruthful :: World -> Bool
-bothLabelsAreTruthful world =
-  redLabelIsTruthful world && greenLabelIsTruthful world
+bothLabelsAreTruthful :: Constraint
+bothLabelsAreTruthful = redLabelIsTruthful `with` greenLabelIsTruthful
