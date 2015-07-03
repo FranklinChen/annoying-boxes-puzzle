@@ -8,6 +8,8 @@
 --
 -- Can you figure out which box contains the treasure?
 
+import Control.Applicative ((<$>), (<*>))
+
 -- All information about a box.
 data Box = Box { _containsTreasure :: Bool
                , _labelIsTrue :: Bool
