@@ -31,6 +31,7 @@ Or you can compile to native code and run that (overkill for this
 little program with no external library dependencies):
 
 ```console
+$ cabal build
 $ cabal run
 ```
 

@@ -8,6 +8,8 @@
 --
 -- Can you figure out which box contains the treasure?
 
+-- Not needed in GHC 7.10 onward, but provided only for
+-- compatibility for older GHC versions.
 import Control.Applicative ((<$>), (<*>))
 
 -- All information about a box.
@@ -23,30 +25,55 @@ data World = World { _redBox :: Box
                    }
              deriving (Show)
 
--- | Return list of all possible consistent worlds by brute force:
+-- | For each constraint,
+-- generate a list of all possible consistent worlds by brute force:
 --
 -- Enumerate all possibilities.
 -- Filter for consistency.
-possibleWorlds :: (World -> Bool) -> [World]
-possibleWorlds extraConstraint =
-  [ world
-  | world <- anyWorld
-  , let redBox = _redBox world
-  , let greenBox = _greenBox world
+main :: IO ()
+main = do
+  putStrLn "Possible consistent worlds for original problem:\n"
+  mapM_ print $ filter defaultConstraint
+              $ anyWorld
 
-  , _containsTreasure redBox |-| _containsTreasure greenBox
+  putStrLn ""
 
-  , _labelIsTrue redBox == _labelIsTrue redBox |-| _labelIsTrue greenBox
-  , _labelIsTrue greenBox ==> _containsTreasure greenBox
+  putStrLn "Possible consistent worlds if we assume the red label is truthful"
+  mapM_ print $ filter (defaultConstraint `with` redLabelIsTruthful)
+              $ anyWorld
 
-  , labelTruthfulness redBox
-  , labelTruthfulness greenBox
-  , extraConstraint world
-  ]
+  putStrLn ""
+
+  putStrLn "Possible consistent worlds if we assume the green label is truthful"
+  mapM_ print $ filter (defaultConstraint `with` greenLabelIsTruthful)
+              $ anyWorld
+
+
+  putStrLn ""
+
+  putStrLn "Possible consistent worlds if we assume both labels are truthful"
+  mapM_ print $ filter (defaultConstraint `with` bothLabelsAreTruthful)
+              $ anyWorld
+
+
+-- | Problem as specified.
+defaultConstraint :: World -> Bool
+defaultConstraint world =
+  let redBox = _redBox world
+      greenBox = _greenBox world
+  in _containsTreasure redBox `xor` _containsTreasure greenBox
+     && _labelIsTrue redBox == _labelIsTrue redBox `xor` _labelIsTrue greenBox
+     && _labelIsTrue greenBox `implies` _containsTreasure greenBox
+     && labelTruthfulness redBox
+     && labelTruthfulness greenBox
+
+-- | Combine constraints
+with :: (World -> Bool) -> (World -> Bool) -> (World -> Bool)
+x `with` y = \world -> x world && y world
 
 -- | If a label is truthful, then what it says is true.
 labelTruthfulness :: Box -> Bool
-labelTruthfulness box = _labelIsTruthful box ==> _labelIsTrue box
+labelTruthfulness box = _labelIsTruthful box `implies` _labelIsTrue box
 
 anyWorld :: [World]
 anyWorld = World <$> anyBox <*> anyBox
@@ -58,12 +85,12 @@ anyBool :: [Bool]
 anyBool = [False, True]
 
 -- | Implication operator.
-(==>) :: Bool -> Bool -> Bool
-p ==> q = not p || q
+implies :: Bool -> Bool -> Bool
+p `implies` q = not p || q
 
 -- | Exclusive-or operator.
-(|-|) :: Bool -> Bool -> Bool
-p |-| q = (p || q) && not (p && q)
+xor :: Bool -> Bool -> Bool
+p `xor` q = (p || q) && not (p && q)
 
 redLabelIsTruthful :: World -> Bool
 redLabelIsTruthful world = _labelIsTruthful (_redBox world)
@@ -74,23 +101,3 @@ greenLabelIsTruthful world = _labelIsTruthful (_greenBox world)
 bothLabelsAreTruthful :: World -> Bool
 bothLabelsAreTruthful world =
   redLabelIsTruthful world && greenLabelIsTruthful world
-
-main :: IO ()
-main = do
-  putStrLn "Possible consistent worlds for original problem:\n"
-  mapM_ print $ possibleWorlds (const True)
-
-  putStrLn ""
-
-  putStrLn "Possible consistent worlds if we assume the red label is truthful"
-  mapM_ print $ possibleWorlds redLabelIsTruthful
-
-  putStrLn ""
-
-  putStrLn "Possible consistent worlds if we assume the green label is truthful"
-  mapM_ print $ possibleWorlds greenLabelIsTruthful
-
-  putStrLn ""
-
-  putStrLn "Possible consistent worlds if we assume both labels are truthful"
-  mapM_ print $ possibleWorlds bothLabelsAreTruthful
