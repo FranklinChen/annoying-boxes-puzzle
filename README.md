@@ -1,5 +1,7 @@
 # Solve an annoying boxes puzzle
 
+[![Build Status](https://travis-ci.org/FranklinChen/annoying-boxes-puzzle.png)](https://travis-ci.org/FranklinChen/annoying-boxes-puzzle)
+
 Solve this [annoying boxes puzzle](http://blog.plover.com/math/logic/annoying-boxes.html):
 
 ```text
@@ -10,6 +12,10 @@ this box."
 
 Can you figure out which box contains the treasure?
 ```
+
+## The followup blog post with solution
+
+Read Mark-Jason Dominus's [writeup of the solution](http://blog.plover.com/math/logic/annoying-boxes-solution.html).
 
 ## Print solution
 
@@ -29,3 +35,7 @@ $ cabal run
 ```
 
 The output is crude but should be self-explanatory.
+
+## Explanation of the solution
+
+TODO

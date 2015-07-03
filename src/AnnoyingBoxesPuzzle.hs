@@ -25,8 +25,8 @@ data World = World { _redBox :: Box
 --
 -- Enumerate all possibilities.
 -- Filter for consistency.
-possibleWorlds :: [World]
-possibleWorlds =
+possibleWorlds :: (World -> Bool) -> [World]
+possibleWorlds extraConstraint =
   [ world
   | world <- anyWorld
   , let redBox = _redBox world
@@ -39,6 +39,7 @@ possibleWorlds =
 
   , labelTruthfulness redBox
   , labelTruthfulness greenBox
+  , extraConstraint world
   ]
 
 -- | If a label is truthful, then what it says is true.
@@ -62,7 +63,32 @@ p ==> q = not p || q
 (|-|) :: Bool -> Bool -> Bool
 p |-| q = (p || q) && not (p && q)
 
+redLabelIsTruthful :: World -> Bool
+redLabelIsTruthful world = _labelIsTruthful (_redBox world)
+
+greenLabelIsTruthful :: World -> Bool
+greenLabelIsTruthful world = _labelIsTruthful (_greenBox world)
+
+bothLabelsAreTruthful :: World -> Bool
+bothLabelsAreTruthful world =
+  redLabelIsTruthful world && greenLabelIsTruthful world
+
 main :: IO ()
 main = do
-  putStrLn "Possible consistent worlds:\n"
-  mapM_ print possibleWorlds
+  putStrLn "Possible consistent worlds for original problem:\n"
+  mapM_ print $ possibleWorlds (const True)
+
+  putStrLn ""
+
+  putStrLn "Possible consistent worlds if we assume the red label is truthful"
+  mapM_ print $ possibleWorlds redLabelIsTruthful
+
+  putStrLn ""
+
+  putStrLn "Possible consistent worlds if we assume the green label is truthful"
+  mapM_ print $ possibleWorlds greenLabelIsTruthful
+
+  putStrLn ""
+
+  putStrLn "Possible consistent worlds if we assume both labels are truthful"
+  mapM_ print $ possibleWorlds bothLabelsAreTruthful
